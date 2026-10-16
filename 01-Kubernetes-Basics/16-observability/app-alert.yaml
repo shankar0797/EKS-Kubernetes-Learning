@@ -1,0 +1,19 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: obs-demo-alerts
+  namespace: monitoring
+  labels:
+    release: monitoring
+spec:
+  groups:
+    - name: obs-demo-app
+      rules:
+        - alert: ObsDemoHighHTTP500
+          expr: sum(increase(app_requests_total{status="500"}[5m])) >= 5
+          for: 30s
+          labels:
+            severity: warning
+          annotations:
+            summary: "OBS demo application has high HTTP 500 errors"
+            description: "The application generated 5 or more HTTP 500 responses in the last 5 minutes."

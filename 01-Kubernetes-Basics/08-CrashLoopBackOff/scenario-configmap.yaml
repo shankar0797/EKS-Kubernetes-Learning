@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: crash-configmap
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: crash-configmap
+
+  template:
+    metadata:
+      labels:
+        app: crash-configmap
+
+    spec:
+      containers:
+        - name: app
+          image: busybox:1.36
+
+          env:
+            - name: APP_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: application-config
+                  key: APP_ENV
+
+            - name: DATABASE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: application-config
+                  key: DATABASE_HOST
+
+            - name: DATABASE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: application-config
+                  key: DATABASE_PORT
+
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Application starting..."
+              echo "Environment: $APP_ENV"
+              echo "Database host: $DATABASE_HOST"
+              echo "Database port: $DATABASE_PORT"
+
+              if [ "$DATABASE_HOST" != "postgres.database.svc.cluster.local" ]; then
+                echo "ERROR: Cannot connect to database at $DATABASE_HOST"
+                exit 1
+              fi
+
+              echo "Database connection successful"
+
+              while true; do
+                sleep 30
+              done

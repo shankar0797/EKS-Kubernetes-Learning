@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: crash-missing-env
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: crash-missing-env
+
+  template:
+    metadata:
+      labels:
+        app: crash-missing-env
+
+    spec:
+      containers:
+        - name: app
+          image: busybox:1.36
+          env:
+           - name: DATABASE_URL
+             value: "postgresql://db.example.internal:5432/orders"
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Application starting..."
+              echo "Checking DATABASE_URL..."
+
+              if [ -z "$DATABASE_URL" ]; then
+                echo "ERROR: DATABASE_URL is not configured"
+                exit 1
+              fi
+
+              echo "DATABASE_URL configured"
+              while true; do
+                sleep 30
+              done
+

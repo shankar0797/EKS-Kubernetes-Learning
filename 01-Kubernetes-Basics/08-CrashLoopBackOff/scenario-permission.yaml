@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: permission-demo
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: permission-demo
+
+  template:
+    metadata:
+      labels:
+        app: permission-demo
+
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+
+      containers:
+        - name: app
+          image: busybox:1.36
+
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Application starting..."
+              echo "Running as user: $(id)"
+
+              echo "Trying to write application file..."
+
+              echo "application configuration" > /etc/config.txt
+
+              echo "Application started successfully"
+
+              while true; do
+                sleep 30
+              done

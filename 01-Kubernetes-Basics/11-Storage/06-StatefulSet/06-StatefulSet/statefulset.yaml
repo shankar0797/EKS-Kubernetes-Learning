@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: stateful-demo
+
+spec:
+  serviceName: stateful-demo
+  replicas: 3
+
+  selector:
+    matchLabels:
+      app: stateful-demo
+
+  template:
+    metadata:
+      labels:
+        app: stateful-demo
+
+    spec:
+      containers:
+        - name: app
+          image: nginx:1.27
+
+          volumeMounts:
+            - name: app-data
+              mountPath: /data
+
+  volumeClaimTemplates:
+    - metadata:
+        name: app-data
+
+      spec:
+        accessModes:
+          - ReadWriteOnce
+
+        resources:
+          requests:
+            storage: 1Gi
+
+        storageClassName: standard

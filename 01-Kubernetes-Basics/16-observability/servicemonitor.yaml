@@ -1,0 +1,18 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: obs-demo-app
+  namespace: monitoring
+  labels:
+    release: monitoring
+spec:
+  namespaceSelector:
+    matchNames:
+      - obs-app
+  selector:
+    matchLabels:
+      app: obs-demo
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s

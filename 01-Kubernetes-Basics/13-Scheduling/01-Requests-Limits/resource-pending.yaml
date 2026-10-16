@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: resource-pending
+
+spec:
+  containers:
+    - name: nginx
+      image: nginx:1.27
+
+      resources:
+        requests:
+          memory: "100Gi"

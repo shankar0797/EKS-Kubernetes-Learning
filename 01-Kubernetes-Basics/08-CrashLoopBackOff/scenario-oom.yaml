@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: oom-demo
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: oom-demo
+
+  template:
+    metadata:
+      labels:
+        app: oom-demo
+
+    spec:
+      containers:
+        - name: memory-hog
+          image: python:3.12-alpine
+
+          resources:
+            requests:
+              memory: "32Mi"
+            limits:
+              memory: "128Mi"
+
+          command:
+            - python
+            - -c
+            - |
+              import time
+
+              chunks = []
+
+              print("Application starting...", flush=True)
+
+              while True:
+                  print("Application running normally", flush=True)
+
+                  time.sleep(10)

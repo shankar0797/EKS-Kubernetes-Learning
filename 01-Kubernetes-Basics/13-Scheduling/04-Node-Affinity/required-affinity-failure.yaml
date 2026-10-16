@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: required-affinity-failure
+
+spec:
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: workload
+                operator: In
+                values:
+                  - database
+
+  containers:
+    - name: nginx
+      image: nginx:1.27

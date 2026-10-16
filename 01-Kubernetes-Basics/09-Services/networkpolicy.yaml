@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: np-web-policy
+spec:
+  podSelector:
+    matchLabels:
+      app: np-web
+
+  policyTypes:
+    - Ingress
+
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: np-client
+
+      ports:
+        - protocol: TCP
+          port: 80

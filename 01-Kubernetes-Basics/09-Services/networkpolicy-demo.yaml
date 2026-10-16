@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: np-web
+  labels:
+    app: np-web
+spec:
+  containers:
+    - name: nginx
+      image: nginx:1.27
+      ports:
+        - containerPort: 80
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: np-client
+  labels:
+    app: np-client
+spec:
+  containers:
+    - name: curl
+      image: curlimages/curl:8.10.1
+      command:
+        - sleep
+        - "3600"

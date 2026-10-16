@@ -1,84 +1,64 @@
-# Kubernetes Pod
+# Kubernetes Pods — Notes
 
 ## 1. What is a Pod?
 
-A Pod is the smallest deployable and schedulable unit in Kubernetes.
+A Pod is the smallest deployable unit in Kubernetes.
 
-Kubernetes does not normally schedule individual containers directly. It schedules Pods.
-
-A Pod can contain one or more containers.
-
-For our lab:
+A Pod usually contains one application container, but it can contain multiple tightly coupled containers.
 
 ```text
 Pod
-└── nginx container
-```
+│
+├── Application Container
+│
+└── Optional Sidecar Container
 
----
+Containers inside the same Pod share:
 
-## 2. Why do we use Pods?
+Network namespace
+Pod IP
+localhost
+Volumes
+2. Why does Kubernetes use Pods?
 
-A Pod provides a common execution environment for its containers.
+Kubernetes doesn't directly manage individual containers as its basic scheduling unit.
 
-Containers inside the same Pod can share:
+Instead:
 
-* Network namespace
-* Pod IP address
-* Storage volumes
-* Lifecycle
+Kubernetes
+    ↓
+Pod
+    ↓
+Container(s)
 
-In a simple application, one Pod commonly contains one application container.
+The Pod provides a common execution environment for one or more containers.
 
----
+3. Pod Lifecycle
 
-## 3. Pod Architecture
+A simplified lifecycle:
 
-Our current environment:
+Pod created
+    ↓
+Pending
+    ↓
+ContainerCreating
+    ↓
+Running
+    ↓
+Succeeded / Failed
 
-```text
-EC2
-└── Minikube
-    └── Kubernetes Node
-        └── Pod
-            └── Nginx Container
-```
+A Pod can also remain:
 
-Kubernetes flow:
+Running
 
-```text
-kubectl
-   |
-   v
-API Server
-   |
-   v
-Scheduler
-   |
-   v
-Node
-   |
-   v
-Kubelet
-   |
-   v
-containerd
-   |
-   v
-Nginx Container
-```
+while its container is unhealthy or repeatedly restarting.
 
----
+Therefore, always check the container state and readiness.
 
-# 4. Pod Manifest
+4. Create a Pod
 
-File:
+Example:
 
-```text
-nginx-pod.yaml
-```
-
-```yaml
 apiVersion: v1
 kind: Pod
 
@@ -88,675 +68,352 @@ metadata:
 spec:
   containers:
     - name: nginx
-      image: nginx:1.27
+      image: nginx:1.29
       ports:
         - containerPort: 80
-```
 
----
+Create:
 
-# 5. Understanding the YAML
-
-### apiVersion
-
-```yaml
-apiVersion: v1
-```
-
-Specifies the Kubernetes API version used for the Pod resource.
-
-### kind
-
-```yaml
-kind: Pod
-```
-
-Specifies that we are creating a Pod.
-
-### metadata
-
-```yaml
-metadata:
-  name: nginx-pod
-```
-
-Defines metadata for the Pod.
-
-The Pod name is:
-
-```text
-nginx-pod
-```
-
-### spec
-
-```yaml
-spec:
-```
-
-Defines the desired state of the Pod.
-
-### containers
-
-```yaml
-containers:
-  - name: nginx
-    image: nginx:1.27
-```
-
-Defines the container that should run inside the Pod.
-
----
-
-# 6. Validate the Manifest
-
-Command:
-
-```bash
-kubectl apply --dry-run=client -f nginx-pod.yaml
-```
-
-### Why?
-
-Validates the manifest locally without creating the actual Pod.
-
-Expected:
-
-```text
-pod/nginx-pod created (dry run)
-```
-
----
-
-# 7. Create the Pod
-
-Command:
-
-```bash
 kubectl apply -f nginx-pod.yaml
-```
-
-### Why?
-
-Creates the Pod according to the desired state defined in the YAML.
-
-Expected:
-
-```text
-pod/nginx-pod created
-```
-
----
-
-# 8. Check Pod Status
-
-Command:
-
-```bash
+5. Check Pods
 kubectl get pods
-```
 
-Expected:
+More details:
 
-```text
-NAME        READY   STATUS    RESTARTS   AGE
-nginx-pod   1/1     Running   0          ...
-```
-
-### Understanding READY
-
-```text
-1/1
-```
-
-means:
-
-```text
-1 container expected
-1 container ready
-```
-
-If we see:
-
-```text
-0/1
-```
-
-the Pod exists but its container is not ready.
-
----
-
-# 9. Get Detailed Pod Information
-
-Command:
-
-```bash
-kubectl get pod nginx-pod -o wide
-```
-
-This provides additional information such as:
-
-* Pod IP
-* Node
-* Status
-* Readiness
+kubectl get pods -o wide
 
 Example:
 
-```text
-NAME        READY   STATUS    IP           NODE
-nginx-pod   1/1     Running   10.244.0.3   minikube
-```
+NAME         READY   STATUS    RESTARTS   AGE
+nginx-pod    1/1     Running   0          1m
 
----
+Meaning:
 
-# 10. Describe the Pod
-
-Command:
-
-```bash
+READY     = containers Ready / total containers
+STATUS    = Pod phase/status
+RESTARTS  = container restart count
+AGE       = Pod age
+6. Get Detailed Pod Information
 kubectl describe pod nginx-pod
-```
 
-### Why?
+Important sections:
 
-Provides detailed information about:
+Node
+IP
+Containers
+Image
+Command
+State
+Last State
+Restart Count
+Conditions
+Volumes
+Events
 
-* Scheduling
-* Container state
-* Image
-* Volumes
-* Conditions
-* Events
+The Events section is especially useful for troubleshooting.
 
-The most important section during troubleshooting is:
+7. Pod IP
 
-```text
-Events:
-```
+Check:
 
----
+kubectl get pod nginx-pod -o wide
 
-# 11. Pod Events
+Example:
 
-During our successful deployment we observed events such as:
+IP           NODE
+10.244.0.10   minikube
 
-```text
-Scheduled
-Pulling
-Pulled
-Created
-Started
-```
+Pod IPs are generally ephemeral.
 
-This represents approximately:
+If the Pod is recreated, it may receive a different IP.
 
-```text
-Scheduler assigns Pod
-        ↓
-Kubelet pulls image
-        ↓
-Image available
-        ↓
-Container created
-        ↓
-Container started
-```
+Therefore applications should generally use a Kubernetes Service rather than relying on a Pod IP.
 
----
+8. Access a Pod
 
-# 12. Container Logs
+Run a shell:
 
-Command:
+kubectl exec -it nginx-pod -- /bin/sh
 
-```bash
-kubectl logs nginx-pod
-```
+Inside:
 
-### Why?
-
-Shows logs produced by the container.
-
-Useful when investigating application startup problems or runtime failures.
-
----
-
-# 13. Enter the Container
-
-Command:
-
-```bash
-kubectl exec -it nginx-pod -- /bin/bash
-```
-
-### Why?
-
-Allows us to execute commands inside the running container.
-
-Inside the container:
-
-```bash
 hostname
-```
 
-Test Nginx:
+Check local HTTP service:
 
-```bash
-curl localhost
-```
+wget -qO- http://localhost
 
 Exit:
 
-```bash
 exit
-```
+9. View Logs
+kubectl logs nginx-pod
 
----
+For a specific container in a multi-container Pod:
 
-# 14. Application Health Verification
+kubectl logs nginx-pod -c <container-name>
 
-We verified the Nginx application directly:
+For the previous container instance:
 
-```bash
-kubectl exec nginx-pod -- curl -I http://localhost
-```
+kubectl logs nginx-pod --previous
 
-Result:
+--previous is useful when a container restarted and the current instance doesn't contain the logs you need.
 
-```text
-HTTP/1.1 200 OK
-Server: nginx/1.27.5
-```
-
-This proves:
-
-```text
-Pod exists
-    ↓
-Container is running
-    ↓
-Nginx is listening
-    ↓
-HTTP request succeeds
-```
-
----
-
-# 15. Intentional Failure — ImagePullBackOff
-
-We intentionally changed:
-
-```yaml
-image: nginx:1.27
-```
-
-to:
-
-```yaml
-image: nginx:image-does-not-exist
-```
-
-Then applied the manifest.
-
-Command:
-
-```bash
-kubectl apply -f nginx-pod.yaml
-```
-
-Pod status became:
-
-```text
-READY   STATUS
-0/1     ImagePullBackOff
-```
-
----
-
-# 16. Troubleshooting ImagePullBackOff
-
-First check:
-
-```bash
-kubectl get pods
-```
-
-Then:
-
-```bash
-kubectl describe pod nginx-pod
-```
-
-Look at:
-
-```text
-Events:
-```
-
-We found:
-
-```text
-Failed to pull image
-```
-
-and:
-
-```text
-ErrImagePull
-```
-
-and:
-
-```text
-ImagePullBackOff
-```
-
-The configured image was:
-
-```text
-nginx:image-does-not-exist
-```
-
-The registry returned:
-
-```text
-not found
-```
-
----
-
-# 17. Root Cause
-
-The container image/tag did not exist.
-
-The problem was:
-
-```text
-nginx:image-does-not-exist
-```
-
-not Kubernetes itself.
-
----
-
-# 18. Fix
-
-Changed the image back to:
-
-```yaml
-image: nginx:1.27
-```
-
-Then:
-
-```bash
-kubectl apply -f nginx-pod.yaml
-```
-
----
-
-# 19. Verify Recovery
-
-Command:
-
-```bash
-kubectl get pod nginx-pod -o wide
-```
-
-Result:
-
-```text
-READY   STATUS
-1/1     Running
-```
-
-Container state:
-
-```text
-State: Running
-Ready: True
-```
-
-Application verification:
-
-```bash
-kubectl exec nginx-pod -- curl -I http://localhost
-```
-
-Result:
-
-```text
-HTTP/1.1 200 OK
-```
-
----
-
-# 20. Important Kubernetes Statuses
-
-### Pending
-
-Pod cannot currently be scheduled or started.
-
-Possible causes:
-
-* Insufficient CPU
-* Insufficient memory
-* Node selector mismatch
-* Taints/tolerations
-* PVC unavailable
-
-### Running
-
-Pod has been started.
+10. Delete a Pod
+kubectl delete pod nginx-pod
 
 Important:
 
-Running does NOT automatically mean the application is healthy.
+A standalone Pod will not automatically recreate itself.
 
-### ErrImagePull
+Standalone Pod
+     ↓
+Delete
+     ↓
+Pod gone
 
-Kubernetes attempted to pull the image but failed.
+A Deployment/ReplicaSet provides controller-based self-healing.
 
-### ImagePullBackOff
+11. Pod vs Container
 
-Kubernetes is backing off before retrying the image pull.
+A Pod is not the same thing as a container.
 
-Common causes:
+Pod
+│
+├── Container A
+└── Container B
 
-* Wrong image name
-* Wrong tag
-* Private registry authentication
-* Missing ImagePullSecret
-* ECR permission problem
-* Network/DNS problem
+The Pod provides the shared environment.
 
-### CrashLoopBackOff
+The container runs the application process.
 
-Container starts but repeatedly crashes.
+12. Pod Networking
 
-Common causes:
+Each Pod normally receives its own IP.
 
-* Application startup failure
-* Incorrect configuration
-* Missing environment variable
-* Dependency unavailable
-* Application exits immediately
+Containers in the same Pod can communicate using:
 
----
+localhost
 
-# 21. Production Troubleshooting Checklist
+Example:
 
-If a Pod is not working:
+Container A
+    |
+ localhost
+    |
+Container B
 
-```text
-1. kubectl get pods
-        ↓
-2. kubectl describe pod <pod>
-        ↓
-3. Check Events
-        ↓
-4. kubectl logs <pod>
-        ↓
-5. Check container state
-        ↓
-6. Check image
-        ↓
-7. Check configuration
-        ↓
-8. Check resources
-        ↓
-9. Check networking
-        ↓
-10. Fix and verify
-```
+They share the Pod network namespace.
 
----
+13. Pod Labels
 
-# 22. Commands Learned
+Labels identify and categorize Kubernetes resources.
 
-```bash
-kubectl apply -f nginx-pod.yaml
+Example:
 
-kubectl apply --dry-run=client -f nginx-pod.yaml
+metadata:
+  labels:
+    app: nginx
+    environment: dev
 
+Query:
+
+kubectl get pods -l app=nginx
+
+Show labels:
+
+kubectl get pods --show-labels
+
+Labels become especially important for:
+
+ReplicaSets
+Deployments
+Services
+NetworkPolicies
+14. Pod Restart vs Pod Recreation
+
+These are different.
+
+Container restart
+
+Same Pod:
+
+Pod
+ ↓
+Container crashes
+ ↓
+Container restarted
+ ↓
+Same Pod
+
+Restart count increases.
+
+Pod recreation
+Old Pod
+   ↓
+Deleted
+   ↓
+New Pod
+
+New Pod can have:
+
+New name
+New IP
+New container ID
+15. Important Pod Statuses
+Status	Meaning
+Pending	Pod has not completed scheduling/startup
+ContainerCreating	Container setup is in progress
+Running	Pod has running containers
+Succeeded	Containers completed successfully
+Failed	Containers terminated unsuccessfully
+CrashLoopBackOff	Container repeatedly crashes and Kubernetes backs off restarts
+ImagePullBackOff	Kubernetes cannot pull the image
+
+Always use:
+
+kubectl describe pod <pod>
+
+to determine the actual reason.
+
+16. Pod Troubleshooting Flow
+kubectl get pods
+       ↓
+Check STATUS
+       ↓
+kubectl describe pod
+       ↓
+Check State / Last State
+       ↓
+Check Events
+       ↓
+kubectl logs
+       ↓
+kubectl exec
+       ↓
+Check configuration
+       ↓
+Root cause
+       ↓
+Fix
+       ↓
+Verify
+17. Important Commands
 kubectl get pods
 
-kubectl get pod nginx-pod -o wide
+kubectl get pods -o wide
 
-kubectl describe pod nginx-pod
+kubectl get pods --show-labels
 
-kubectl logs nginx-pod
+kubectl describe pod <pod>
 
-kubectl exec -it nginx-pod -- /bin/bash
+kubectl logs <pod>
 
-kubectl exec nginx-pod -- curl -I http://localhost
-```
+kubectl logs <pod> --previous
 
----
+kubectl logs <pod> -c <container>
 
-# 23. What We Learned
+kubectl exec -it <pod> -- /bin/sh
 
-### Conceptual
+kubectl delete pod <pod>
 
-* Pod is the smallest Kubernetes deployable unit.
-* Kubernetes schedules Pods.
-* A Pod can contain one or more containers.
-* Pod IP comes from the Kubernetes Pod network.
-* Kubelet manages Pods on a node.
-* containerd runs the containers.
+kubectl get pod <pod> -o yaml
 
-### Practical
+kubectl get pod <pod> -o json
+18. Interview Q&A
+Q1. What is a Pod?
 
-We learned how to:
+A Pod is the smallest deployable unit in Kubernetes and provides the execution environment for one or more containers.
 
-* Create a Pod
-* Inspect a Pod
-* View Pod events
-* View container logs
-* Enter a container
-* Test the application
-* Troubleshoot ImagePullBackOff
-* Identify root cause from Events
-* Fix the image
-* Verify application recovery
+Q2. Can a Pod contain multiple containers?
 
----
+Yes. Containers in the same Pod share networking and can share volumes.
 
-# 24. Interview Questions
+Q3. Why are multiple containers placed in one Pod?
 
-### Q1. What is a Pod?
+When containers are tightly coupled and need to share lifecycle, network, or storage.
 
-A Pod is the smallest deployable and schedulable unit in Kubernetes and can contain one or more containers.
+A common example is an application container with a sidecar.
 
-### Q2. Is a Pod the same as a container?
+Q4. Do containers in the same Pod have different IP addresses?
 
-No. A Pod is a Kubernetes abstraction that provides an execution environment for one or more containers.
+Normally no. Containers in the same Pod share the Pod's network namespace and IP.
 
-### Q3. How do you troubleshoot ImagePullBackOff?
+Q5. How do containers in the same Pod communicate?
 
-I first run:
+Using localhost and the appropriate container port.
 
-```bash
+Q6. Are Pod IPs permanent?
+
+No. Pod IPs are generally ephemeral.
+
+Q7. How do you check a Pod's IP?
+kubectl get pod <pod> -o wide
+Q8. How do you troubleshoot a Pod that isn't running?
+kubectl get pod <pod>
+kubectl describe pod <pod>
+kubectl logs <pod>
+
+Then inspect Events and container state.
+
+Q9. What is the difference between kubectl logs and kubectl describe?
+
+kubectl logs shows application/container output.
+
+kubectl describe shows Kubernetes resource state, configuration, conditions, and Events.
+
+Q10. When would you use kubectl logs --previous?
+
+When the container restarted and you need logs from the previous container instance.
+
+Q11. What happens when a standalone Pod is deleted?
+
+It is permanently removed unless another controller is responsible for recreating it.
+
+Q12. What happens when a Deployment-managed Pod is deleted?
+
+The Deployment/ReplicaSet detects the missing replica and creates a replacement Pod.
+
+Q13. What does 1/1 mean?
+
+One container is Ready out of one container in the Pod.
+
+Q14. What does 0/1 Running mean?
+
+The container is running, but it is not currently Ready.
+
+A readiness probe failure is one possible reason.
+
+Q15. What does Restart Count mean?
+
+It shows how many times a container inside the Pod has been restarted.
+
+Q16. Does restarting a container create a new Pod?
+
+No.
+
+The container restarts inside the same Pod.
+
+Q17. How can you enter a running Pod?
+kubectl exec -it <pod> -- /bin/sh
+Q18. What is the difference between Pod deletion and container restart?
+
+Pod deletion removes the Pod object and its containers.
+
+Container restart keeps the same Pod but restarts the container process.
+
+Q19. Why shouldn't applications use Pod IPs directly?
+
+Because Pod IPs can change when Pods are recreated. Kubernetes Services provide stable access.
+
+Q20. What is the first command you normally run when troubleshooting Pods?
+
+Usually:
+
 kubectl get pods
-```
 
 Then:
 
-```bash
-kubectl describe pod <pod-name>
-```
+kubectl describe pod <pod>
 
-I check the Events section to determine whether the issue is an invalid image/tag, registry authentication, network/DNS, or registry availability.
-
-### Q4. Does Running mean the application is healthy?
-
-Not necessarily. I verify container readiness and application functionality using container logs, probes, or an application-level health check.
-
-### Q5. What is the difference between ErrImagePull and ImagePullBackOff?
-
-`ErrImagePull` means the image pull failed. `ImagePullBackOff` means Kubernetes is backing off and retrying the image pull.
-
-### Q6. What is the difference between Pod IP and Service IP?
-
-A Pod receives an IP from the Pod network and that IP can change when the Pod is recreated. A Service provides a stable network endpoint for accessing a group of Pods.
-
----
-
-# 25. Production Scenario
-
-**Scenario:**
-
-A developer says:
-
-> "My application Pod is down."
-
-My initial approach:
-
-```bash
-kubectl get pods
-```
-
-If I see:
-
-```text
-ImagePullBackOff
-```
-
-I run:
-
-```bash
-kubectl describe pod <pod-name>
-```
-
-Then I inspect:
-
-```text
-Events
-```
-
-I identify the exact image-pull error, fix the underlying issue, and verify:
-
-```bash
-kubectl get pods
-```
-
-followed by an application-level health check.
-
----
-
-# 26. Lab Status
-
-* [x] Create Pod
-* [x] Verify Pod
-* [x] Inspect Pod
-* [x] View logs
-* [x] Execute commands inside Pod
-* [x] Test Nginx
-* [x] Break image
-* [x] Troubleshoot ImagePullBackOff
-* [x] Fix image
-* [x] Verify recovery
-
-Next topic:
-
-**ReplicaSet → Deployment**
+and logs when applicable.

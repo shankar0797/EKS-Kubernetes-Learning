@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crash-database
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: crash-database
+  template:
+    metadata:
+      labels:
+        app: crash-database
+    spec:
+      containers:
+        - name: app
+          image: busybox:1.36
+
+          env:
+            - name: DATABASE_HOST
+              value: "postgres.database.svc.cluster.local"
+
+            - name: DATABASE_PORT
+              value: "5432"
+
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+
+              echo "Application starting..."
+              echo "Database: $DATABASE_HOST:$DATABASE_PORT"
+
+              echo "Checking database connectivity..."
+
+              if ! nc -z -w 3 "$DATABASE_HOST" "$DATABASE_PORT"; then
+                echo "ERROR: Cannot connect to database"
+                exit 1
+              fi
+
+              echo "Database connection successful"
+
+              while true; do
+                sleep 30
+              done
+
